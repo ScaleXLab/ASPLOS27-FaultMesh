@@ -28,6 +28,10 @@ Note: All commands in this guide should be run as root (`sudo -i` or `sudo su`).
 | `scripts/env/` | Download the 550 userspace and CUDA 12.4, switch the kernel modules, and restore them |
 | `scripts/experiment/` | Application comparison |
 
+## 🚀 One-Click Reproduction
+
+Reproduce our main results with just a few commands.
+
 From the repository root:
 
 ```bash
@@ -36,13 +40,15 @@ bash scripts/env/switch_to_faultmesh.sh
 bash scripts/experiment/run_baseline_vs_faultmesh.sh
 ```
 
-`download_nvidia_550.sh` leaves the two `.run` installers in this directory. Unpacked `libcuda`, `nvidia-smi`, and the CUDA toolkit go in `cuda-toolkit/`. It does not change `/usr/local/cuda`.
+`download_nvidia_550.sh` downloads and installs CUDA 12.4 Lib.
 
-`switch_to_faultmesh.sh` saves the machine's current kernel modules, installs the 550.54.14 GSP firmware, and loads `backLib`. It is the one-time setup step. The baseline-versus-FaultMesh comparison does not stay on that loaded state: `run_baseline_vs_faultmesh.sh` reloads the driver with `backLib/perf_baseline.sh` before the baseline apps, then with `backLib/perf_ours.sh` before the FaultMesh apps.
+`switch_to_faultmesh.sh` saves the machine's current kernel modules, installs the 550.54.14 kernel modules. 
+
+`run_baseline_vs_faultmesh.sh` compare UVM and FaultMesh under 10 GPGPU applications.
 
 ## Restore the original driver
 
-After the experiments, put back the kernel modules recorded before the switch:
+After the experiments, you can put back your kernel using:
 
 ```bash
 sudo bash scripts/env/restore_host_nvidia.sh
