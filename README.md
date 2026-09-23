@@ -9,9 +9,9 @@ GPU page-fault handling split into a device-side FrontLib and a UVM BackLib.
 ## Hardware and software
 
 * NVIDIA GPU, compute capability 8.0 (tested on A100-SXM4-40GB).
-* CUDA 12.4 and the open kernel driver 550.54.14.
 * Linux kernel headers matching `uname -r`.
-* Run the load scripts as root.
+* The FaultMesh kernel modules are the open driver **550.54.14**. `libcuda` and `nvidia-smi` have to be that same version. A newer driver already installed on the machine (for example 560) will not run these modules.
+* CUDA toolkit **12.4.0**, which is the toolkit released with driver 550.54.14.
 
 ## Layout
 
@@ -24,13 +24,34 @@ GPU page-fault handling split into a device-side FrontLib and a UVM BackLib.
 
 ## Setup
 
-Build and load FaultMesh:
+Download the 550.54.14 driver and the CUDA 12.4 toolkit into `third_party/` (not installed yet):
 
 ```bash
-sudo bash scripts/load_faultmesh.sh
+bash scripts/download_nvidia_550.sh
 ```
 
-Load the UVM baseline instead:
+That fetches:
+
+* `NVIDIA-Linux-x86_64-550.54.14.run` — driver userspace (`libcuda.so.550.54.14`, NVML, `nvidia-smi`) and GSP firmware
+* `cuda_12.4.0_550.54.14_linux.run` — CUDA 12.4 toolkit, installed under `third_party/cuda-12.4`
+
+If the machine already has another NVIDIA driver, switch to FaultMesh and remember the previous stack:
+
+```bash
+sudo bash scripts/switch_to_faultmesh.sh
+```
+
+The script saves the current kernel modules, `libcuda` / `libnvidia-ml` symlinks, and the `/usr/local/cuda` link under `third_party/host-snapshot/`. It then installs the 550 firmware, builds `backLib/`, loads it with async copy-map on and merge dispatch off, and points `libcuda` and `/usr/local/cuda` at the 550 libraries.
+
+After the experiments, put the previous driver and CUDA libraries back:
+
+```bash
+sudo bash scripts/restore_host_nvidia.sh
+```
+
+Open a new shell after either switch so `PATH` picks up `/etc/profile.d/faultmesh-550.sh`.
+
+Load the UVM baseline instead of FaultMesh, without changing userspace:
 
 ```bash
 sudo bash scripts/load_baseline.sh

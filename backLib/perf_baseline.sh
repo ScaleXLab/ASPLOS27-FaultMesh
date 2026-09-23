@@ -1,5 +1,5 @@
 #!/bin/bash
-sudo systemctl stop gdm    # Ubuntu
+sudo systemctl stop gdm 2>/dev/null || true
 set -euo pipefail
 
 # 参数化，便于批量脚本复用

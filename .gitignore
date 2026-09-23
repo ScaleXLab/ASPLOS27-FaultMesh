@@ -1,3 +1,6 @@
+# Downloaded driver, CUDA toolkit, and the host snapshot
+third_party/
+
 # Build artifacts
 **/build/
 *.o
