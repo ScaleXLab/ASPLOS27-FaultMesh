@@ -16,9 +16,9 @@ SKIP="-DSKIP_CPU_VERIFY"
 log() { printf '[experiment] %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-[[ -x /usr/local/cuda/bin/nvcc ]] || die "nvcc not found. Run: sudo bash scripts/build/switch_to_faultmesh.sh"
+[[ -x /usr/local/cuda/bin/nvcc ]] || die "nvcc not found. Run: sudo bash scripts/env/switch_to_faultmesh.sh"
 ver="$(cat /proc/driver/nvidia/version 2>/dev/null || true)"
-printf '%s\n' "${ver}" | grep -q '550\.54\.14' || die "kernel driver is not 550.54.14. Run: sudo bash scripts/build/switch_to_faultmesh.sh"
+printf '%s\n' "${ver}" | grep -q '550\.54\.14' || die "kernel driver is not 550.54.14. Run: sudo bash scripts/env/switch_to_faultmesh.sh"
 
 mkdir -p "${OUT}/logs" "${OUT}/bin"
 echo "benchmark,design,wall_s,gpu_s,rc" > "${OUT}/results.csv"
@@ -59,9 +59,9 @@ load_design() {
   local design="$1"
   log "load ${design}"
   if [[ "${design}" == "baseline" ]]; then
-    sudo BUILD_KERNEL=0 bash "${ROOT}/scripts/build/load_baseline.sh"
+    sudo BUILD_KERNEL=0 bash "${ROOT}/scripts/env/load_baseline.sh"
   else
-    sudo BUILD_KERNEL=0 bash "${ROOT}/scripts/build/load_faultmesh.sh"
+    sudo BUILD_KERNEL=0 bash "${ROOT}/scripts/env/load_faultmesh.sh"
   fi
 }
 

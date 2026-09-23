@@ -15,14 +15,14 @@ Tested on an A100-SXM4-40GB. The kernel modules are open driver 550.54.14, and `
 | `frontLib/` | Device header used by the benchmarks |
 | `backLib/` | Open GPU kernel modules |
 | `microbenchmark/` | 2DCONV, ATAX, BICG, GEMM, GESUMMV, MVT, hellinger, nw, XSBench, bfs |
-| `scripts/build/` | Download 550, switch the machine to it, and restore the previous driver |
+| `scripts/env/` | Download 550, switch the machine to it, and restore the previous driver |
 | `scripts/experiment/` | Run the direct FrontLib + FaultMesh versus UVM baseline comparison |
 
 From the repository root:
 
 ```bash
-bash scripts/build/download_nvidia_550.sh
-sudo bash scripts/build/switch_to_faultmesh.sh
+bash scripts/env/download_nvidia_550.sh
+sudo bash scripts/env/switch_to_faultmesh.sh
 bash scripts/experiment/run_direct_vs_uvm.sh
 ```
 
@@ -37,7 +37,7 @@ bfs reads `microbenchmark/bfs/graph6M.txt` (Rodinia, 6291456 nodes). The other a
 After the experiments, restore the previous driver and CUDA libraries:
 
 ```bash
-sudo bash scripts/build/restore_host_nvidia.sh
+sudo bash scripts/env/restore_host_nvidia.sh
 ```
 
 Open a new shell after switching or restoring so `PATH` picks up `/etc/profile.d/faultmesh-550.sh`.
