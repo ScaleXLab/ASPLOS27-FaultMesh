@@ -41,12 +41,17 @@ unload_nvidia_stack() {
   fi
 }
 
+# Build before unloading. A failed make must not leave the GPU without a driver.
+# make -C does not depend on the caller's working directory.
+BACKLIB_DIR="$(dirname "$(readlink -f "$0")")"
+if [ "${BUILD_KERNEL}" = "1" ]; then
+  make -C "${BACKLIB_DIR}" modules -j"$(nproc)"
+fi
+
 unload_nvidia_stack
 
-# 编译
 if [ "${BUILD_KERNEL}" = "1" ]; then
-  make modules -j"$(nproc)"
-  make modules_install -j"$(nproc)"
+  make -C "${BACKLIB_DIR}" modules_install -j"$(nproc)"
 fi
 
 # Load the core through modprobe, not a bare insmod.  nvidia.ko depends on the

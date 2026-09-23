@@ -4,7 +4,7 @@ Qi Chen, Guanyi Chen, Jian Zhang
 
 Artifact evaluation for ASPLOS'27.
 
-Note: All commands in this guide should be run as root (`sudo -i` or `sudo su`).
+Note: Run the commands below with `sudo`. Each one stops the sequence if it fails. A root shell is not required.
 
 ## Hardware Requirements
 
@@ -35,9 +35,9 @@ Reproduce our main results with just a few commands.
 From the repository root:
 
 ```bash
-bash scripts/env/download_nvidia_550.sh
-bash scripts/env/switch_to_faultmesh.sh
-bash scripts/experiment/run_baseline_vs_faultmesh.sh
+sudo bash scripts/env/download_nvidia_550.sh &&
+sudo bash scripts/env/switch_to_faultmesh.sh &&
+sudo bash scripts/experiment/run_baseline_vs_faultmesh.sh
 ```
 
 `download_nvidia_550.sh` downloads and installs CUDA 12.4 Lib.
