@@ -2,21 +2,22 @@
 # Direct FrontLib + FaultMesh BackLib versus the UVM baseline.
 # Problem sizes are the sources' historical ~4 GiB defaults.
 #
-#   bash scripts/experiment/run_direct_vs_uvm.sh
+#   bash scripts/experiment/run_baseline_vs_faultmesh.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-BENCH="${ROOT}/microbenchmark"
-export PATH="/usr/local/cuda/bin:${PATH}"
+source "${ROOT}/scripts/env/nvidia_550_common.sh"
+use_repo_cuda
+BENCH="${ROOT}/application"
 ARCH="${ARCH:-sm_80}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
-OUT="${ROOT}/results/direct_vs_uvm_${STAMP}"
+OUT="${ROOT}/results/baseline_vs_faultmesh_${STAMP}"
 SKIP="-DSKIP_CPU_VERIFY"
 
 log() { printf '[experiment] %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-[[ -x /usr/local/cuda/bin/nvcc ]] || die "nvcc not found. Run: sudo bash scripts/env/switch_to_faultmesh.sh"
+[[ -x "${CUDA_PREFIX}/bin/nvcc" ]] || die "nvcc not found in ${CUDA_PREFIX}. Run: bash scripts/env/download_nvidia_550.sh"
 ver="$(cat /proc/driver/nvidia/version 2>/dev/null || true)"
 printf '%s\n' "${ver}" | grep -q '550\.54\.14' || die "kernel driver is not 550.54.14. Run: sudo bash scripts/env/switch_to_faultmesh.sh"
 
@@ -88,7 +89,7 @@ parse_gpu() {
 run_app() {
   local design="$1" app="$2" variant="$3"
   if [[ "${app}" == "bfs" && ! -f "${OUT}/bin/graph6M.txt" ]]; then
-    log "skip bfs: microbenchmark/bfs/graph6M.txt is not in the repository"
+    log "skip bfs: application/bfs/graph6M.txt is not in the repository"
     echo "bfs,${design},,,skipped_no_graph" >> "${OUT}/results.csv"
     return 0
   fi

@@ -14,7 +14,7 @@ DRIVER_RUN="${DOWNLOAD_DIR}/NVIDIA-Linux-x86_64-${NVIDIA_550_VERSION}.run"
 CUDA_RUN="${DOWNLOAD_DIR}/cuda_${CUDA_TOOLKIT_VERSION}_${NVIDIA_550_VERSION}_linux.run"
 DRIVER_EXTRACT="${THIRD_PARTY}/nvidia-${NVIDIA_550_VERSION}-extract"
 USERSPACE_DIR="${THIRD_PARTY}/nvidia-${NVIDIA_550_VERSION}"
-CUDA_PREFIX="${THIRD_PARTY}/cuda-${CUDA_TOOLKIT_VERSION}"
+CUDA_PREFIX="${REPO_ROOT}/cuda-toolkit"
 SNAPSHOT_DIR="${THIRD_PARTY}/host-snapshot"
 
 # 64-bit driver libraries a CUDA process actually loads.
@@ -85,20 +85,13 @@ stage_driver_userspace() {
   fi
 }
 
+use_repo_cuda() {
+  export PATH="${CUDA_PREFIX}/bin:${USERSPACE_DIR}/bin:${PATH}"
+  export LD_LIBRARY_PATH="${USERSPACE_DIR}/lib:${CUDA_PREFIX}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+}
+
 install_cuda_toolkit() {
   if [[ -x "${CUDA_PREFIX}/bin/nvcc" ]]; then
-    return 0
-  fi
-  local existing=""
-  for candidate in /usr/local/cuda-12.4 /usr/local/cuda; do
-    if [[ -x "${candidate}/bin/nvcc" ]] && "${candidate}/bin/nvcc" --version 2>/dev/null | grep -q 'release 12.4'; then
-      existing="${candidate}"
-      break
-    fi
-  done
-  if [[ -n "${existing}" ]]; then
-    log "CUDA 12.4 is already installed at ${existing}"
-    ln -sfn "${existing}" "${CUDA_PREFIX}"
     return 0
   fi
   [[ -f "${CUDA_RUN}" ]] || die "missing ${CUDA_RUN}; run scripts/env/download_nvidia_550.sh"

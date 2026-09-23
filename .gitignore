@@ -1,5 +1,6 @@
 # Downloaded driver, CUDA toolkit, host snapshot, and experiment logs
 third_party/
+cuda-toolkit/
 results/
 
 # Build artifacts
@@ -16,16 +17,16 @@ results/
 modules.order
 Module.symvers
 
-# Microbenchmark binaries and generated graphs
-microbenchmark/**/run
-microbenchmark/**/run_16gb
-microbenchmark/**/hellinger
-microbenchmark/**/needle
-microbenchmark/**/bfs
-microbenchmark/**/XSBench
-microbenchmark/**/graphgen
-microbenchmark/**/graph*.txt
-microbenchmark/**/result.txt
+# Application binaries and generated graphs
+application/**/run
+application/**/run_16gb
+application/hellinger/hellinger
+application/**/needle
+application/bfs/bfs
+application/XSBench/XSBench
+application/**/graphgen
+application/**/graph*.txt
+application/**/result.txt
 
 # Editor
 *~

@@ -56,30 +56,9 @@ snapshot_host() {
 }
 
 install_userspace() {
-  local dir link
-  : > "${SNAPSHOT_DIR}/liblinks-created.txt"
-  while read -r dir; do
-    for link in "${LIB_LINKS[@]}"; do
-      if [[ ! -e "${dir}/${link}" && ! -L "${dir}/${link}" ]]; then
-        printf '%s\n' "${dir}/${link}" >> "${SNAPSHOT_DIR}/liblinks-created.txt"
-      fi
-    done
-    ln -sfn "${USERSPACE_DIR}/lib/libcuda.so.${NVIDIA_550_VERSION}" "${dir}/libcuda.so.1"
-    ln -sfn "libcuda.so.1" "${dir}/libcuda.so"
-    ln -sfn "${USERSPACE_DIR}/lib/libnvidia-ml.so.${NVIDIA_550_VERSION}" "${dir}/libnvidia-ml.so.1"
-    ln -sfn "libnvidia-ml.so.1" "${dir}/libnvidia-ml.so"
-    ln -sfn "${USERSPACE_DIR}/lib/libnvidia-ptxjitcompiler.so.${NVIDIA_550_VERSION}" "${dir}/libnvidia-ptxjitcompiler.so.1"
-    ln -sfn "libnvidia-ptxjitcompiler.so.1" "${dir}/libnvidia-ptxjitcompiler.so"
-  done < <(unique_lib_dirs)
-  ldconfig || true
-  install -m 0755 "${USERSPACE_DIR}/bin/nvidia-smi" /usr/local/bin/nvidia-smi
-  if [[ ! -e /usr/local/cuda && ! -L /usr/local/cuda ]]; then
-    echo "CUDA_LINK_CREATED=1" >> "${SNAPSHOT_DIR}/manifest.env"
-  fi
-  ln -sfn "${CUDA_PREFIX}" /usr/local/cuda
   cat > /etc/profile.d/faultmesh-550.sh <<EOF
-export PATH=/usr/local/cuda/bin:\${PATH}
-export LD_LIBRARY_PATH=${USERSPACE_DIR}/lib\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}
+export PATH=${CUDA_PREFIX}/bin:${USERSPACE_DIR}/bin:\${PATH}
+export LD_LIBRARY_PATH=${USERSPACE_DIR}/lib:${CUDA_PREFIX}/lib64\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}
 EOF
 }
 
@@ -102,6 +81,7 @@ BUILD_KERNEL="${BUILD_KERNEL:-1}" bash "${REPO_ROOT}/scripts/env/load_faultmesh.
 restore_kos_after_install
 install_userspace
 touch "${SNAPSHOT_DIR}/ACTIVE"
+use_repo_cuda
 log "FaultMesh 550.54.14 is loaded. nvidia-smi:"
 nvidia-smi || true
 log "Restore the previous stack with: sudo bash scripts/env/restore_host_nvidia.sh"
