@@ -1,5 +1,6 @@
-# Downloaded driver, CUDA toolkit, and the host snapshot
+# Downloaded driver, CUDA toolkit, host snapshot, and experiment logs
 third_party/
+results/
 
 # Build artifacts
 **/build/
