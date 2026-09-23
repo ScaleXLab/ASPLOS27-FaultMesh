@@ -7,7 +7,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${ROOT}/scripts/env/nvidia_550_common.sh"
-use_repo_cuda
+require_nvcc
 BENCH="${ROOT}/application"
 ARCH="${ARCH:-sm_80}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
@@ -17,12 +17,22 @@ SKIP="-DSKIP_CPU_VERIFY"
 log() { printf '[experiment] %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-[[ -x "${CUDA_PREFIX}/bin/nvcc" ]] || die "nvcc not found in ${CUDA_PREFIX}. Run: bash scripts/env/download_nvidia_550.sh"
-ver="$(cat /proc/driver/nvidia/version 2>/dev/null || true)"
-printf '%s\n' "${ver}" | grep -q '550\.54\.14' || die "kernel driver is not 550.54.14. Run: sudo bash scripts/env/switch_to_faultmesh.sh"
-
 mkdir -p "${OUT}/logs" "${OUT}/bin"
 echo "benchmark,design,wall_s,gpu_s,rc" > "${OUT}/results.csv"
+
+ensure_bfs_graph() {
+  local graph="${BENCH}/bfs/graph6M.txt"
+  if [[ -f "${graph}" ]]; then
+    return 0
+  fi
+  log "generate ${graph} (6291456 nodes)"
+  make -C "${BENCH}/bfs/inputgen" graphgen
+  (
+    cd "${BENCH}/bfs/inputgen"
+    ./graphgen 6291456 6M
+  )
+  mv "${BENCH}/bfs/inputgen/graph6M.txt" "${graph}"
+}
 
 compile_one() {
   local name="$1"
@@ -45,9 +55,8 @@ compile_one() {
       ;;
     bfs)
       nvcc -O3 -arch="${ARCH}" "${BENCH}/bfs/main.cu" -o "${OUT}/bin/bfs"
-      if [[ -f "${BENCH}/bfs/graph6M.txt" ]]; then
-        ln -sfn "${BENCH}/bfs/graph6M.txt" "${OUT}/bin/graph6M.txt"
-      fi
+      ensure_bfs_graph
+      ln -sfn "${BENCH}/bfs/graph6M.txt" "${OUT}/bin/graph6M.txt"
       ;;
   esac
 }
@@ -56,14 +65,44 @@ for app in 2DCONV ATAX BICG GEMM GESUMMV hellinger MVT nw XSBench bfs; do
   compile_one "${app}"
 done
 
-load_design() {
-  local design="$1"
-  log "load ${design}"
-  if [[ "${design}" == "baseline" ]]; then
-    sudo BUILD_KERNEL=0 bash "${ROOT}/scripts/env/load_baseline.sh"
-  else
-    sudo BUILD_KERNEL=0 bash "${ROOT}/scripts/env/load_faultmesh.sh"
+# Baseline and FaultMesh are the same backLib binary with different module
+# parameters. Rebuild only when that binary is missing, for another kernel,
+# not 550.54.14, or older than the UVM sources. BUILD_KERNEL=1 forces a rebuild.
+need_kernel_build() {
+  [[ "${BUILD_KERNEL:-auto}" == "1" ]] && return 0
+  [[ "${BUILD_KERNEL:-auto}" == "0" ]] && return 1
+  local ko vermagic version
+  ko="$(modinfo -n nvidia-uvm 2>/dev/null || true)"
+  [[ -n "${ko}" && -f "${ko}" ]] || return 0
+  vermagic="$(modinfo -F vermagic "${ko}" 2>/dev/null || true)"
+  version="$(modinfo -F version "${ko}" 2>/dev/null || true)"
+  [[ "${vermagic}" == "$(uname -r)"* && "${version}" == "550.54.14" ]] || return 0
+  if find "${ROOT}/backLib/kernel-open/nvidia-uvm" -name '*.c' -newer "${ko}" -print -quit | grep -q .; then
+    return 0
   fi
+  return 1
+}
+
+load_design() {
+  local design="$1" build=0
+  # Baseline and FaultMesh are two loads of backLib. Baseline must be loaded
+  # first through perf_baseline.sh, which unloads whatever driver is present.
+  if [[ "${design}" == "baseline" ]] && need_kernel_build; then
+    build=1
+    log "backLib module is missing or older than the source; compiling once"
+  elif [[ "${design}" != "faultmesh" ]]; then
+    log "reload ${design} parameters without compiling"
+  fi
+  log "switch driver to ${design}"
+  if [[ "${design}" == "baseline" ]]; then
+    sudo bash -c "source '${ROOT}/scripts/env/nvidia_550_common.sh' && bind_550_userspace && install_gsp_firmware"
+    sudo BUILD_KERNEL="${build}" bash "${ROOT}/backLib/perf_baseline.sh"
+  else
+    sudo BUILD_KERNEL=0 bash "${ROOT}/backLib/perf_ours.sh"
+  fi
+  local ver
+  ver="$(cat /proc/driver/nvidia/version 2>/dev/null || true)"
+  printf '%s\n' "${ver}" | grep -q '550\.54\.14' || die "loaded kernel is not 550.54.14 after ${design}"
 }
 
 bench_cmd() {
@@ -88,11 +127,6 @@ parse_gpu() {
 
 run_app() {
   local design="$1" app="$2" variant="$3"
-  if [[ "${app}" == "bfs" && ! -f "${OUT}/bin/graph6M.txt" ]]; then
-    log "skip bfs: application/bfs/graph6M.txt is not in the repository"
-    echo "bfs,${design},,,skipped_no_graph" >> "${OUT}/results.csv"
-    return 0
-  fi
   local cmd logfile rc=0 t0 wall gpu
   cmd="$(bench_cmd "${app}")"
   logfile="${OUT}/logs/${app}_${design}.log"
@@ -137,7 +171,7 @@ for row in rows:
         value = None
     (base if design == "baseline" else ours)[app] = value
 lines = [
-    "# Direct FrontLib + FaultMesh vs UVM baseline",
+    "# UVM vs FaultMesh",
     "",
     "GPU seconds. Speedup is UVM baseline / FaultMesh.",
     "",

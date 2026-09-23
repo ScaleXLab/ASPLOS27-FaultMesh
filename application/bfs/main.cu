@@ -75,7 +75,7 @@ fprintf(stderr,"Usage: %s <input_file>\n", argv[0]);
 void BFSGraph( int argc, char** argv)
 {
 
-    char *input_f;
+    const char *input_f;
 	/* if(argc!=2){ */
 	/* Usage(argc, argv); */
 	/* exit(0); */
@@ -93,7 +93,11 @@ void BFSGraph( int argc, char** argv)
 
 	int source = 0;
 
-	fscanf(fp,"%d",&no_of_nodes);
+	if (fscanf(fp,"%d",&no_of_nodes) != 1) {
+		printf("Error Reading graph file\n");
+		fclose(fp);
+		return;
+	}
 
 	int num_of_blocks = 1;
 	int num_of_threads_per_block = no_of_nodes;
@@ -116,7 +120,11 @@ void BFSGraph( int argc, char** argv)
 	// initalize the memory
 	for( unsigned int i = 0; i < no_of_nodes; i++)
 	{
-		fscanf(fp,"%d %d",&start,&edgeno);
+		if (fscanf(fp,"%d %d",&start,&edgeno) != 2) {
+			printf("Error Reading graph file\n");
+			fclose(fp);
+			return;
+		}
 		h_graph_nodes[i].starting = start;
 		h_graph_nodes[i].no_of_edges = edgeno;
 		h_graph_mask[i]=false;
@@ -125,21 +133,32 @@ void BFSGraph( int argc, char** argv)
 	}
 
 	//read the source node from the file
-	fscanf(fp,"%d",&source);
+	if (fscanf(fp,"%d",&source) != 1) {
+		printf("Error Reading graph file\n");
+		fclose(fp);
+		return;
+	}
 	source=0;
 
 	//set the source node as true in the mask
 	h_graph_mask[source]=true;
 	h_graph_visited[source]=true;
 
-	fscanf(fp,"%d",&edge_list_size);
+	if (fscanf(fp,"%d",&edge_list_size) != 1) {
+		printf("Error Reading graph file\n");
+		fclose(fp);
+		return;
+	}
 
 	int id,cost;
 	int* h_graph_edges = (int*) malloc(sizeof(int)*edge_list_size);
 	for(int i=0; i < edge_list_size ; i++)
 	{
-		fscanf(fp,"%d",&id);
-		fscanf(fp,"%d",&cost);
+		if (fscanf(fp,"%d",&id) != 1 || fscanf(fp,"%d",&cost) != 1) {
+			printf("Error Reading graph file\n");
+			fclose(fp);
+			return;
+		}
 		h_graph_edges[i] = id;
 	}
 
@@ -216,7 +235,6 @@ void BFSGraph( int argc, char** argv)
 
 	int k=0;
 	printf("Start traversing the tree\n");
-	bool stop;
 	//Call the Kernel untill all the elements of Frontier are not false
 		/* stop=false; */
 	double t_start, t_end;

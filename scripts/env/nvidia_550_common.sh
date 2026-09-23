@@ -4,16 +4,17 @@
 NVIDIA_550_VERSION="550.54.14"
 CUDA_TOOLKIT_VERSION="12.4.0"
 
-DRIVER_URL="https://us.download.nvidia.com/XFree86/Linux-x86_64/${NVIDIA_550_VERSION}/NVIDIA-Linux-x86_64-${NVIDIA_550_VERSION}.run"
+DRIVER_URL="https://download.nvidia.com/XFree86/Linux-x86_64/${NVIDIA_550_VERSION}/NVIDIA-Linux-x86_64-${NVIDIA_550_VERSION}.run"
 CUDA_URL="https://developer.download.nvidia.com/compute/cuda/${CUDA_TOOLKIT_VERSION}/local_installers/cuda_${CUDA_TOOLKIT_VERSION}_${NVIDIA_550_VERSION}_linux.run"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 THIRD_PARTY="${REPO_ROOT}/third_party"
-DOWNLOAD_DIR="${THIRD_PARTY}/download"
+# The two .run installers stay in the repository root. Unpacked libraries and
+# the toolkit go in cuda-toolkit/.
+DOWNLOAD_DIR="${REPO_ROOT}"
 DRIVER_RUN="${DOWNLOAD_DIR}/NVIDIA-Linux-x86_64-${NVIDIA_550_VERSION}.run"
 CUDA_RUN="${DOWNLOAD_DIR}/cuda_${CUDA_TOOLKIT_VERSION}_${NVIDIA_550_VERSION}_linux.run"
-DRIVER_EXTRACT="${THIRD_PARTY}/nvidia-${NVIDIA_550_VERSION}-extract"
-USERSPACE_DIR="${THIRD_PARTY}/nvidia-${NVIDIA_550_VERSION}"
+USERSPACE_DIR="${REPO_ROOT}/cuda-toolkit"
 CUDA_PREFIX="${REPO_ROOT}/cuda-toolkit"
 SNAPSHOT_DIR="${THIRD_PARTY}/host-snapshot"
 
@@ -43,6 +44,24 @@ LIB_LINKS=(
 log() { printf '[nvidia-550] %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
+# True when the CUDA library already loaded by this machine is 550.54.14.
+host_has_550_cuda_lib() {
+  local path real
+  local candidates=(
+    /usr/lib/x86_64-linux-gnu/libcuda.so.1
+    /lib/x86_64-linux-gnu/libcuda.so.1
+    /usr/lib64/libcuda.so.1
+    "/usr/lib/x86_64-linux-gnu/libcuda.so.${NVIDIA_550_VERSION}"
+    "/lib/x86_64-linux-gnu/libcuda.so.${NVIDIA_550_VERSION}"
+  )
+  for path in "${candidates[@]}"; do
+    [[ -e "${path}" ]] || continue
+    real="$(readlink -f "${path}" 2>/dev/null || echo "${path}")"
+    [[ "${real}" == *"libcuda.so.${NVIDIA_550_VERSION}" ]] && return 0
+  done
+  ldconfig -p 2>/dev/null | grep -q "libcuda.so.1 => .*libcuda.so.${NVIDIA_550_VERSION}"
+}
+
 download_file() {
   local url="$1" dest="$2"
   mkdir -p "$(dirname "${dest}")"
@@ -51,10 +70,11 @@ download_file() {
     return 0
   fi
   log "download ${url}"
+  local ua='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
   if command -v wget >/dev/null 2>&1; then
-    wget -c -O "${dest}.partial" "${url}"
+    wget -c --user-agent="${ua}" --referer='https://www.nvidia.com/' -O "${dest}.partial" "${url}"
   else
-    curl -fL --retry 3 -o "${dest}.partial" "${url}"
+    curl -fL --retry 3 -A "${ua}" -e 'https://www.nvidia.com/' -o "${dest}.partial" "${url}"
   fi
   mv "${dest}.partial" "${dest}"
 }
@@ -62,42 +82,120 @@ download_file() {
 stage_driver_userspace() {
   [[ -x "${DRIVER_RUN}" || -f "${DRIVER_RUN}" ]] || die "missing ${DRIVER_RUN}"
   if [[ ! -f "${USERSPACE_DIR}/lib/libcuda.so.${NVIDIA_550_VERSION}" ]]; then
-    log "extract driver runfile"
-    rm -rf "${DRIVER_EXTRACT}"
-    sh "${DRIVER_RUN}" --extract-only --target "${DRIVER_EXTRACT}"
+    log "extract driver runfile, then keep only libcuda, nvidia-smi, and GSP firmware"
+    mkdir -p "${USERSPACE_DIR}"
+    local extract="${USERSPACE_DIR}/.extract"
+    rm -rf "${extract}"
+    sh "${DRIVER_RUN}" --extract-only --target "${extract}"
     mkdir -p "${USERSPACE_DIR}/lib" "${USERSPACE_DIR}/bin" "${USERSPACE_DIR}/firmware"
     local lib
     for lib in "${USERSPACE_LIBS[@]}"; do
-      [[ -f "${DRIVER_EXTRACT}/${lib}" ]] || die "runfile has no ${lib}"
-      cp -a "${DRIVER_EXTRACT}/${lib}" "${USERSPACE_DIR}/lib/${lib}"
+      [[ -f "${extract}/${lib}" ]] || die "runfile has no ${lib}"
+      cp -a "${extract}/${lib}" "${USERSPACE_DIR}/lib/${lib}"
     done
-    cp -a "${DRIVER_EXTRACT}/nvidia-smi" "${USERSPACE_DIR}/bin/nvidia-smi"
+    cp -a "${extract}/nvidia-smi" "${USERSPACE_DIR}/bin/nvidia-smi"
     chmod +x "${USERSPACE_DIR}/bin/nvidia-smi"
-    cp -a "${DRIVER_EXTRACT}/firmware/gsp_ga10x.bin" "${USERSPACE_DIR}/firmware/"
-    cp -a "${DRIVER_EXTRACT}/firmware/gsp_tu10x.bin" "${USERSPACE_DIR}/firmware/"
+    cp -a "${extract}/firmware/gsp_ga10x.bin" "${USERSPACE_DIR}/firmware/"
+    cp -a "${extract}/firmware/gsp_tu10x.bin" "${USERSPACE_DIR}/firmware/"
     ln -sfn "libcuda.so.${NVIDIA_550_VERSION}" "${USERSPACE_DIR}/lib/libcuda.so.1"
     ln -sfn "libcuda.so.1" "${USERSPACE_DIR}/lib/libcuda.so"
     ln -sfn "libnvidia-ml.so.${NVIDIA_550_VERSION}" "${USERSPACE_DIR}/lib/libnvidia-ml.so.1"
     ln -sfn "libnvidia-ml.so.1" "${USERSPACE_DIR}/lib/libnvidia-ml.so"
     ln -sfn "libnvidia-ptxjitcompiler.so.${NVIDIA_550_VERSION}" "${USERSPACE_DIR}/lib/libnvidia-ptxjitcompiler.so.1"
     ln -sfn "libnvidia-ptxjitcompiler.so.1" "${USERSPACE_DIR}/lib/libnvidia-ptxjitcompiler.so"
-    rm -rf "${DRIVER_EXTRACT}"
+    rm -rf "${extract}"
   fi
 }
 
 use_repo_cuda() {
-  export PATH="${CUDA_PREFIX}/bin:${USERSPACE_DIR}/bin:${PATH}"
-  export LD_LIBRARY_PATH="${USERSPACE_DIR}/lib:${CUDA_PREFIX}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+  local nvcc_bin="" lib_path=""
+  if [[ -x "${CUDA_PREFIX}/bin/nvcc" ]]; then
+    nvcc_bin="${CUDA_PREFIX}/bin"
+    [[ -d "${CUDA_PREFIX}/lib64" ]] && lib_path="${CUDA_PREFIX}/lib64"
+  elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
+    nvcc_bin="/usr/local/cuda/bin"
+  fi
+  if [[ -n "${nvcc_bin}" ]]; then
+    export PATH="${nvcc_bin}:${USERSPACE_DIR}/bin:${PATH}"
+  else
+    export PATH="${USERSPACE_DIR}/bin:${PATH}"
+  fi
+  if [[ -e "${USERSPACE_DIR}/lib/libcuda.so.${NVIDIA_550_VERSION}" ]]; then
+    lib_path="${USERSPACE_DIR}/lib${lib_path:+:${lib_path}}"
+  fi
+  if [[ -n "${lib_path}" ]]; then
+    export LD_LIBRARY_PATH="${lib_path}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+  fi
+}
+
+require_nvcc() {
+  use_repo_cuda
+  if [[ -x "${CUDA_PREFIX}/bin/nvcc" ]]; then
+    return 0
+  fi
+  if [[ -x /usr/local/cuda/bin/nvcc ]] && /usr/local/cuda/bin/nvcc --version 2>/dev/null | grep -q 'release 12.4'; then
+    return 0
+  fi
+  die "CUDA 12.4 nvcc was not found. Run: bash scripts/env/download_nvidia_550.sh"
+}
+
+# A previous toolkit install into the repository can stop halfway and leave
+# symlinks behind. The NVIDIA installer aborts when it tries to create them again.
+clean_incomplete_toolkit() {
+  [[ -x "${CUDA_PREFIX}/bin/nvcc" ]] && return 0
+  local item
+  for item in targets include lib64 nvvm gds compute-sanitizer extras share doc DOCS pkgconfig src version.json EULA.txt; do
+    rm -rf "${CUDA_PREFIX}/${item}"
+  done
+  rm -rf "${CUDA_PREFIX}"/nsight-compute-* "${CUDA_PREFIX}"/nsight-systems-*
+  if [[ -d "${CUDA_PREFIX}/bin" ]]; then
+    find "${CUDA_PREFIX}/bin" -mindepth 1 ! -name 'nvidia-smi' -exec rm -rf {} +
+  fi
 }
 
 install_cuda_toolkit() {
   if [[ -x "${CUDA_PREFIX}/bin/nvcc" ]]; then
     return 0
   fi
+  if [[ -x /usr/local/cuda/bin/nvcc ]] && /usr/local/cuda/bin/nvcc --version 2>/dev/null | grep -q 'release 12.4'; then
+    log "CUDA 12.4 nvcc is already available at /usr/local/cuda/bin/nvcc"
+    return 0
+  fi
   [[ -f "${CUDA_RUN}" ]] || die "missing ${CUDA_RUN}; run scripts/env/download_nvidia_550.sh"
+  clean_incomplete_toolkit
   log "install CUDA ${CUDA_TOOLKIT_VERSION} toolkit into ${CUDA_PREFIX}"
-  sh "${CUDA_RUN}" --silent --toolkit --toolkitpath="${CUDA_PREFIX}" --override
+  if ! sh "${CUDA_RUN}" --silent --toolkit --toolkitpath="${CUDA_PREFIX}" --override; then
+    echo "CUDA installer failed. Last errors from /tmp/cuda-installer.log:" >&2
+    grep -E '\[ERROR\]' /tmp/cuda-installer.log 2>/dev/null | tail -20 >&2 || true
+    die "CUDA toolkit install failed"
+  fi
   [[ -x "${CUDA_PREFIX}/bin/nvcc" ]] || die "CUDA toolkit install did not produce ${CUDA_PREFIX}/bin/nvcc"
+}
+
+# Point the system CUDA library at the 550.54.14 files in this repository.
+# ldconfig applies immediately, so the current shell's next process sees it.
+bind_550_userspace() {
+  [[ "$(id -u)" -eq 0 ]] || die "bind_550_userspace must run as root"
+  local libcuda="${USERSPACE_DIR}/lib/libcuda.so.${NVIDIA_550_VERSION}"
+  [[ -e "${libcuda}" ]] || die "missing ${libcuda}. Run: bash scripts/env/download_nvidia_550.sh"
+  local dir
+  while read -r dir; do
+    ln -sfn "${libcuda}" "${dir}/libcuda.so.1"
+    ln -sfn "libcuda.so.1" "${dir}/libcuda.so"
+    ln -sfn "${USERSPACE_DIR}/lib/libnvidia-ml.so.${NVIDIA_550_VERSION}" "${dir}/libnvidia-ml.so.1"
+    ln -sfn "libnvidia-ml.so.1" "${dir}/libnvidia-ml.so"
+    ln -sfn "${USERSPACE_DIR}/lib/libnvidia-ptxjitcompiler.so.${NVIDIA_550_VERSION}" "${dir}/libnvidia-ptxjitcompiler.so.1"
+    ln -sfn "libnvidia-ptxjitcompiler.so.1" "${dir}/libnvidia-ptxjitcompiler.so"
+  done < <(unique_lib_dirs)
+  if [[ -x "${CUDA_PREFIX}/bin/nvcc" ]]; then
+    ln -sfn "${CUDA_PREFIX}/bin/nvcc" /usr/local/bin/nvcc
+  elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
+    ln -sfn /usr/local/cuda/bin/nvcc /usr/local/bin/nvcc
+  fi
+  if [[ -x "${USERSPACE_DIR}/bin/nvidia-smi" ]]; then
+    ln -sfn "${USERSPACE_DIR}/bin/nvidia-smi" /usr/local/bin/nvidia-smi
+  fi
+  ldconfig
 }
 
 install_gsp_firmware() {

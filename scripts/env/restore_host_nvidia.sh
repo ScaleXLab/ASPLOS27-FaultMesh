@@ -75,7 +75,20 @@ if [[ -f "${SNAPSHOT_DIR}/liblinks-created.txt" ]]; then
   done < "${SNAPSHOT_DIR}/liblinks-created.txt"
 fi
 
-rm -f /usr/local/bin/nvidia-smi /etc/profile.d/faultmesh-550.sh
+rm -f /etc/profile.d/faultmesh-550.sh /etc/ld.so.conf.d/faultmesh-550.conf
+if [[ -f "${SNAPSHOT_DIR}/bin-links.txt" ]]; then
+  while read -r name target; do
+    [[ -n "${name}" ]] || continue
+    if [[ "${target}" == "MISSING" ]]; then
+      rm -f "/usr/local/bin/${name}"
+    elif [[ -n "${target}" ]]; then
+      ln -sfn "${target}" "/usr/local/bin/${name}"
+    fi
+  done < "${SNAPSHOT_DIR}/bin-links.txt"
+else
+  rm -f /usr/local/bin/nvidia-smi
+fi
+ldconfig || true
 if [[ "${CUDA_LINK_TARGET}" == "MISSING" ]]; then
   rm -f /usr/local/cuda
 elif [[ "${CUDA_LINK_TARGET}" != "NOT_A_LINK" ]]; then

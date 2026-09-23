@@ -475,7 +475,10 @@ SimulationData binary_read( Inputs in )
   assert(fp != NULL);
 
   // Read SimulationData Object. Include pointers, even though we won't be using them.
-  fread(&SD, sizeof(SimulationData), 1, fp);
+  if (fread(&SD, sizeof(SimulationData), 1, fp) != 1) {
+    fprintf(stderr, "ERROR: failed to read XSBench SimulationData\n");
+    exit(1);
+  }
 
   // Allocate space for arrays on heap
   SD.num_nucs = (int *) malloc(SD.length_num_nucs * sizeof(int));
@@ -486,12 +489,15 @@ SimulationData binary_read( Inputs in )
   SD.unionized_energy_array = (double *) malloc( SD.length_unionized_energy_array * sizeof(double));
 
   // Read heap arrays into SimulationData Object
-  fread(SD.num_nucs,       sizeof(int), SD.length_num_nucs, fp);
-  fread(SD.concs,          sizeof(double), SD.length_concs, fp);
-  fread(SD.mats,           sizeof(int), SD.length_mats, fp);
-  fread(SD.nuclide_grid,   sizeof(NuclideGridPoint), SD.length_nuclide_grid, fp); 
-  fread(SD.index_grid, sizeof(int), SD.length_index_grid, fp);
-  fread(SD.unionized_energy_array, sizeof(double), SD.length_unionized_energy_array, fp);
+  if (fread(SD.num_nucs, sizeof(int), SD.length_num_nucs, fp) != (size_t)SD.length_num_nucs ||
+      fread(SD.concs, sizeof(double), SD.length_concs, fp) != (size_t)SD.length_concs ||
+      fread(SD.mats, sizeof(int), SD.length_mats, fp) != (size_t)SD.length_mats ||
+      fread(SD.nuclide_grid, sizeof(NuclideGridPoint), SD.length_nuclide_grid, fp) != (size_t)SD.length_nuclide_grid ||
+      fread(SD.index_grid, sizeof(int), SD.length_index_grid, fp) != (size_t)SD.length_index_grid ||
+      fread(SD.unionized_energy_array, sizeof(double), SD.length_unionized_energy_array, fp) != (size_t)SD.length_unionized_energy_array) {
+    fprintf(stderr, "ERROR: failed to read XSBench binary arrays\n");
+    exit(1);
+  }
 
   fclose(fp);
 

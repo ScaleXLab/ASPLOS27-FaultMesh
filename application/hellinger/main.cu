@@ -11,6 +11,7 @@
 #include <cmath>
 #include <sys/time.h>
 #include <cuda_runtime.h>
+#define PF_ENSURE_SLOW_ATTR __forceinline__
 #include "../../frontLib/frontend_prefault_common.cuh"
 
 #define TILE 16
@@ -31,6 +32,7 @@ static double rtclock() {
     return Tp.tv_sec + Tp.tv_usec * 1.0e-6;
 }
 
+#ifndef SKIP_CPU_VERIFY
 static void init_data(FP *a, FP *b, FP *c) {
     srand(123);
     for (int i = 0; i < M; i++)
@@ -49,6 +51,7 @@ static void init_data(FP *a, FP *b, FP *c) {
         for (int j = 0; j < P; j++)
             c[i * P + j] = 0;
 }
+#endif
 
 /* ── plain tiled hellinger ──────────────────────────────────── */
 __global__ void hellinger_plain(FP *a, FP *b, FP *c,

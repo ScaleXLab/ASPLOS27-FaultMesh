@@ -3,7 +3,6 @@ sudo systemctl stop gdm 2>/dev/null || true
 set -euo pipefail
 
 # 参数化，便于批量脚本复用
-PREFETCH_ENABLE="${PREFETCH_ENABLE:-0}"
 BUILD_KERNEL="${BUILD_KERNEL:-1}"
 PARALLEL_WORKERS="${PARALLEL_WORKERS:-0}"
 ASYNC_COPY_MAP_ENABLE="${ASYNC_COPY_MAP_ENABLE:-0}"
@@ -53,7 +52,6 @@ sudo modprobe nvidia
 sudo modprobe nvidia-uvm \
   uvm_parallel_fault_processing=0 \
   uvm_kthread_workers="${PARALLEL_WORKERS}" \
-  uvm_perf_prefetch_enable="${PREFETCH_ENABLE}" \
   uvm_batched_ipi_unmap=0 \
   uvm_merge_dispatch=0 \
   uvm_parallel_async_copy_map_enable="${ASYNC_COPY_MAP_ENABLE}" \
@@ -121,4 +119,4 @@ fi
 if [ -e /sys/module/nvidia_uvm/parameters/uvm_merge_continuous_workers ]; then
   echo 0 | sudo tee /sys/module/nvidia_uvm/parameters/uvm_merge_continuous_workers > /dev/null
 fi
-echo "Reload finished! baseline prefetch=${PREFETCH_ENABLE} async_copy_map=${ASYNC_COPY_MAP_ENABLE}"
+echo "Reload finished!"

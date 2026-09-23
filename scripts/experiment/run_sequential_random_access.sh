@@ -6,7 +6,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${ROOT}/scripts/env/nvidia_550_common.sh"
-use_repo_cuda
+require_nvcc
 SRC="${ROOT}/microbenchmark/sequential_random_access.cu"
 ARCH="${ARCH:-sm_80}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
@@ -15,7 +15,6 @@ OUT="${ROOT}/results/sequential_random_access_${STAMP}"
 log() { printf '[sequential-random] %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-[[ -x "${CUDA_PREFIX}/bin/nvcc" ]] || die "nvcc not found in ${CUDA_PREFIX}. Run: bash scripts/env/download_nvidia_550.sh"
 mkdir -p "${OUT}"
 
 log "compile"

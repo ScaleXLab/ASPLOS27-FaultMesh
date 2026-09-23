@@ -92,7 +92,7 @@ void compareResults(DATA_TYPE* s, DATA_TYPE* s_outputFromGpu, DATA_TYPE* q, DATA
 	}
 	
 	// print results
-	printf("Non-Matching CPU-GPU Outputs Beyond Error Threshold of %4.2f Percent: %d\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
+	printf("Non-Matching CPU-GPU Outputs Beyond Error Threshold of %4.2f Percent: %lld\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
 }
 
 

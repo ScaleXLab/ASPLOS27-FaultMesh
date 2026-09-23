@@ -238,9 +238,15 @@ __device__ __forceinline__ void pf_direct_touch(volatile uint32_t* page_status,
 
 /* Free function, not a member: a member call materializes the view
  * (including last_page / last_blk) in local memory. Returns true when
- * the whole 2 MiB block is already resident. */
+ * the whole 2 MiB block is already resident.
+ * A translation unit may set PF_ENSURE_SLOW_ATTR before including this
+ * header. Hellinger inlines it; the default keeps the slow path out of
+ * line so other kernels do not spill the hit-path registers. */
+#ifndef PF_ENSURE_SLOW_ATTR
+#define PF_ENSURE_SLOW_ATTR __noinline__
+#endif
 template <typename T>
-__device__ __noinline__ bool pf_ensure_slow(T* ptr,
+__device__ PF_ENSURE_SLOW_ATTR bool pf_ensure_slow(T* ptr,
                                             uint64_t n_elems,
                                             uint32_t page_shift,
                                             volatile uint32_t* page_status,

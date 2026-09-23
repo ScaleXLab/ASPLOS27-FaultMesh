@@ -105,7 +105,7 @@ void compareResults(DATA_TYPE* x1, DATA_TYPE* x1_outputFromGpu, DATA_TYPE* x2, D
 	}
 	
 	// Print results
-	printf("Non-Matching CPU-GPU Outputs Beyond Error Threshold of %4.2f Percent: %d\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
+	printf("Non-Matching CPU-GPU Outputs Beyond Error Threshold of %4.2f Percent: %lld\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
 }
 
 
@@ -197,7 +197,7 @@ __global__ void mvt_kernel2_frontend(DATA_TYPE *a, DATA_TYPE *x2, DATA_TYPE *y_2
 
 void mvtCuda(DATA_TYPE* a_gpu, DATA_TYPE* x1_gpu, DATA_TYPE* x2_gpu, DATA_TYPE* y_1_gpu, DATA_TYPE* y_2_gpu)
 {
-	double t_start, t_end, t_middle;
+	double t_start, t_end;
 	const char* bv = getenv("BENCH_VARIANT");
 	const bool use_frontend = (bv && strcmp(bv, "frontend") == 0);
 	const uint32_t page_shift = 12;

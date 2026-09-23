@@ -35,8 +35,8 @@
 // Tunables for prefetch detection/prevention (configurable via module parameters)
 //
 
-// Enable/disable prefetch performance heuristics
-static unsigned uvm_perf_prefetch_enable = 1;
+// Prefetch performance heuristics are off unless a module parameter overrides this.
+static unsigned uvm_perf_prefetch_enable = 0;
 
 // TODO: Bug 1778037: [uvm] Use adaptive threshold for page prefetching
 #define UVM_PREFETCH_THRESHOLD_DEFAULT 51

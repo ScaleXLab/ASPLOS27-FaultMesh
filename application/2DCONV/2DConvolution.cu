@@ -34,11 +34,13 @@ static double rtclock() {
     return Tp.tv_sec + Tp.tv_usec * 1.0e-6;
 }
 
+#ifndef SKIP_CPU_VERIFY
 static void init_data(DATA_TYPE *A) {
     srand(42);
     for (long long i = 0; i < (long long)NI * NJ; i++)
         A[i] = (float)rand() / RAND_MAX;
 }
+#endif
 
 /* ── plain 2D convolution (original, no shared memory) ──────── */
 __global__ void conv2d_plain(DATA_TYPE *A, DATA_TYPE *B) {

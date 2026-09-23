@@ -1,7 +1,8 @@
-# Downloaded driver, CUDA toolkit, host snapshot, and experiment logs
+# Downloaded installers, unpacked driver libraries, CUDA toolkit, and logs
 third_party/
 cuda-toolkit/
 results/
+/*.run
 
 # Build artifacts
 **/build/

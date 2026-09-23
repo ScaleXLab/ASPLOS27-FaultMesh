@@ -71,7 +71,7 @@ int main( int argc, char ** argv )
 	s = argc > 2 ? argv[2] : argv[1]; // filename bit
 	string filename = "graph" + s + ".txt";
 
-	cout << "Generating graph with " << numNodes << " nodes...\n";
+	cout << "Generating graph with " << numNodes << " nodes (expected about 1 minute)...\n";
 	node * graph;
 	graph = new node[numNodes];
 
@@ -105,7 +105,7 @@ int main( int argc, char ** argv )
 	}
 
 	// Output
-	cout << "Writing to file \"" << filename << "\"...\n";
+	cout << "Writing to file \"" << filename << "\" (expected about 40 seconds)...\n";
 	ofstream outf( filename );
 	outf << numNodes << "\n";
 	ulong totalEdges = 0;

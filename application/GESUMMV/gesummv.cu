@@ -125,6 +125,7 @@ __device__ __forceinline__ void cta_short_window_touch(T* ptr,
     __syncwarp(eq_mask);
 }
 
+#ifndef SKIP_CPU_VERIFY
 static void init_data(DATA_TYPE* A, DATA_TYPE* B, DATA_TYPE* x)
 {
     for (long long i = 0; i < N; i++) {
@@ -135,6 +136,7 @@ static void init_data(DATA_TYPE* A, DATA_TYPE* B, DATA_TYPE* x)
         }
     }
 }
+#endif
 
 static double checksum_pair(const DATA_TYPE* y, const DATA_TYPE* tmp)
 {

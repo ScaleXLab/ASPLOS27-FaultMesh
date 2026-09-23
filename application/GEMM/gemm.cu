@@ -46,6 +46,7 @@ static double rtclock() {
     return Tp.tv_sec + Tp.tv_usec * 1.0e-6;
 }
 
+#ifndef SKIP_CPU_VERIFY
 static void init_data(DATA_TYPE *A, DATA_TYPE *B, DATA_TYPE *C) {
     for (int i = 0; i < NI; i++)
         for (int j = 0; j < NK; j++)
@@ -57,6 +58,7 @@ static void init_data(DATA_TYPE *A, DATA_TYPE *B, DATA_TYPE *C) {
         for (int j = 0; j < NJ; j++)
             C[i * NJ + j] = ((DATA_TYPE)i * j + 2) / NJ;
 }
+#endif
 
 /* ── plain tiled GEMM ──────────────────────────────────────────── */
 __global__ void gemm_plain(DATA_TYPE *A, DATA_TYPE *B, DATA_TYPE *C) {
