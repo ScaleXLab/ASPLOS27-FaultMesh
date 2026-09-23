@@ -1,0 +1,28 @@
+# Build artifacts
+**/build/
+*.o
+*.so
+*.so.*
+*.ko
+*.a
+*.mod
+*.mod.c
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+
+# Microbenchmark binaries and generated graphs
+microbenchmark/**/run
+microbenchmark/**/run_16gb
+microbenchmark/**/hellinger
+microbenchmark/**/needle
+microbenchmark/**/bfs
+microbenchmark/**/XSBench
+microbenchmark/**/graphgen
+microbenchmark/**/graph*.txt
+microbenchmark/**/result.txt
+
+# Editor
+*~
+*.swp
