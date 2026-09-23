@@ -16,6 +16,8 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <cuda_runtime.h>
 
 // ============================================================================
@@ -721,6 +723,8 @@ inline void pf_sched_reset(pf_queue_t* q)
 inline void pf_sched_print_stats(const pf_queue_t* q)
 {
     if (!q) return;
+    const char* show = getenv("PF_SCHED_STATS");
+    if (!show || strcmp(show, "1") != 0) return;
     printf("[PF_SCHED] Stats:\n");
     printf("  total_requests: %lu\n", (unsigned long)q->total_requests);
     printf("  unique_pages:   %lu\n", (unsigned long)q->unique_pages);

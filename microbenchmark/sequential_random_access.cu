@@ -98,13 +98,6 @@ static void pf_direct_destroy(pf_direct_t* d_obj)
     cudaFree(d_obj);
 }
 
-static void pf_direct_reset(pf_direct_t* d_obj)
-{
-    pf_direct_t h;
-    cudaMemcpy(&h, d_obj, sizeof(pf_direct_t), cudaMemcpyDeviceToHost);
-    cudaMemset((void*)h.page_status, 0, h.n_pages * sizeof(uint32_t));
-}
-
 // ============================================================================
 // "VBatch" approach: global per-VA-Block buffers + sequenced cooperative flush
 //
@@ -1361,11 +1354,14 @@ int main(int argc, char** argv)
         // so n_accesses scales linearly with n_blocks: n_acc = 8192 * nblk
         const uint64_t CHUNK_PER_BLOCK = (uint64_t)TEST_NUM_PAGES / 4;  // 8192
 
+        fprintf(stderr, "%-12s %8s %10s %10s %8s\n",
+                "pattern", "threads", "plain_ms", "time_ms", "speedup");
+        fflush(stderr);
         printf("\n========== SWEEP: seq_dup, 5 methods, threads 512..4096 ==========\n");
         printf("threads,n_acc,plain_ms,sched_ms,direct_ms,grouped_ms,vbatch_ms,"
                "sched_x,direct_x,grouped_x,vbatch_x\n");
 
-        int tcounts[] = {512, 1024, 1536, 2048, 2560, 3072, 3584, 4096};
+        int tcounts[] = {512, 1024, 2048, 4096};
         int nc = sizeof(tcounts) / sizeof(tcounts[0]);
         const int NRUNS = 3;
 
@@ -1390,6 +1386,9 @@ int main(int argc, char** argv)
             printf("%d,%llu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
                    total, (unsigned long long)n_acc, mp, ms, md, mg, mv,
                    mp/ms, mp/md, mp/mg, mp/mv);
+            fprintf(stderr, "%-12s %8d %10.2f %10.2f %7.2fx\n",
+                    "sequential", total, mp, mv, mp / mv);
+            fflush(stderr);
         }
 
         // --- RandDup sweep (scaled: n_unique grows with blocks) ---
@@ -1430,6 +1429,9 @@ int main(int argc, char** argv)
                    total, (unsigned long long)n_acc, (unsigned long long)n_unique,
                    mp, ms, md, mg, mv,
                    mp/ms, mp/md, mp/mg, mp/mv);
+            fprintf(stderr, "%-12s %8d %10.2f %10.2f %7.2fx\n",
+                    "random", total, mp, mv, mp / mv);
+            fflush(stderr);
         }
     }
 

@@ -22,10 +22,18 @@ nvcc -arch="${ARCH}" -O3 -DTEST_NUM_PAGES=32768 -DDUP_FACTOR=4 \
   "${SRC}" -o "${OUT}/sequential_random_access"
 
 log "run"
+set +e
 (
   cd "${OUT}"
   PF_SWEEP=1 PF_SCHED_SMOKE_ONLY=1 CUDA_MODULE_LOADING=EAGER ./sequential_random_access
-) | tee "${OUT}/run.log"
+) >"${OUT}/run.log"
+rc=$?
+set -e
+if [[ "${rc}" -ne 0 ]]; then
+  log "benchmark failed rc=${rc}"
+  tail -n 40 "${OUT}/run.log" >&2
+  exit "${rc}"
+fi
 
 python3 - "${OUT}/run.log" "${OUT}/summary.md" << 'PY'
 import sys
@@ -58,15 +66,12 @@ lines = [
     "| Pattern | Threads | Plain (ms) | Time (ms) | Speedup |",
     "|---|---:|---:|---:|---:|",
 ]
-print(f"{'pattern':12} {'threads':>8} {'plain_ms':>10} {'time_ms':>10} {'speedup':>8}")
 for pattern in ("sequential", "random"):
     for threads in (512, 1024, 2048, 4096):
         plain_ms, time_ms, speedup = rows[pattern][threads]
         lines.append(
             f"| {pattern} | {threads} | {plain_ms:.2f} | {time_ms:.2f} | {speedup:.2f}x |"
         )
-        print(f"{pattern:12} {threads:8d} {plain_ms:10.2f} {time_ms:10.2f} {speedup:7.2f}x")
 Path(sys.argv[2]).write_text("\n".join(lines) + "\n")
-print(f"\nWrote {sys.argv[2]}")
 PY
 log "results: ${OUT}"
