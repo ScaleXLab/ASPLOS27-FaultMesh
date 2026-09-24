@@ -17,6 +17,7 @@ CUDA_RUN="${DOWNLOAD_DIR}/cuda_${CUDA_TOOLKIT_VERSION}_${NVIDIA_550_VERSION}_lin
 USERSPACE_DIR="${REPO_ROOT}/cuda-toolkit"
 CUDA_PREFIX="${REPO_ROOT}/cuda-toolkit"
 SNAPSHOT_DIR="${THIRD_PARTY}/host-snapshot"
+CONDA_ENV_DIR="${REPO_ROOT}/.conda/faultmesh-550"
 
 # 64-bit driver libraries a CUDA process actually loads.
 USERSPACE_LIBS=(
@@ -123,6 +124,10 @@ use_repo_cuda() {
   if [[ -e "${USERSPACE_DIR}/lib/libcuda.so.${NVIDIA_550_VERSION}" ]]; then
     lib_path="${USERSPACE_DIR}/lib${lib_path:+:${lib_path}}"
   fi
+  if [[ -d "${CONDA_ENV_DIR}/lib" ]]; then
+    lib_path="${CONDA_ENV_DIR}/lib${lib_path:+:${lib_path}}"
+    export PATH="${CONDA_ENV_DIR}/bin:${PATH}"
+  fi
   if [[ -n "${lib_path}" ]]; then
     export LD_LIBRARY_PATH="${lib_path}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
   fi
@@ -137,6 +142,47 @@ require_nvcc() {
     return 0
   fi
   die "CUDA 12.4 nvcc was not found. Run: bash scripts/env/download_nvidia_550.sh"
+}
+
+# Userspace 550 libraries live in a conda prefix inside this repository.
+# The kernel module switch still changes the machine; these libraries do not.
+setup_conda_userspace() {
+  local libcuda="${USERSPACE_DIR}/lib/libcuda.so.${NVIDIA_550_VERSION}"
+  [[ -e "${libcuda}" ]] || die "missing ${libcuda}. Run: bash scripts/env/download_nvidia_550.sh"
+  local conda_bin=""
+  for conda_bin in \
+    "$(command -v conda 2>/dev/null || true)" \
+    "${HOME}/anaconda3/bin/conda" \
+    "${HOME}/miniconda3/bin/conda" \
+    /home/leo/anaconda3/bin/conda \
+    /opt/conda/bin/conda; do
+    [[ -n "${conda_bin}" && -x "${conda_bin}" ]] && break
+    conda_bin=""
+  done
+  [[ -n "${conda_bin}" ]] || die "conda was not found"
+  if [[ ! -d "${CONDA_ENV_DIR}" ]]; then
+    "${conda_bin}" create -y --prefix "${CONDA_ENV_DIR}"
+  fi
+  mkdir -p "${CONDA_ENV_DIR}/lib" "${CONDA_ENV_DIR}/bin" \
+    "${CONDA_ENV_DIR}/etc/conda/activate.d" "${CONDA_ENV_DIR}/etc/conda/deactivate.d"
+  local name
+  for name in libcuda libnvidia-ml libnvidia-ptxjitcompiler libcudadebugger; do
+    cp -a "${USERSPACE_DIR}/lib/${name}.so.${NVIDIA_550_VERSION}" "${CONDA_ENV_DIR}/lib/"
+    ln -sfn "${name}.so.${NVIDIA_550_VERSION}" "${CONDA_ENV_DIR}/lib/${name}.so.1"
+    ln -sfn "${name}.so.1" "${CONDA_ENV_DIR}/lib/${name}.so"
+  done
+  cp -a "${USERSPACE_DIR}/bin/nvidia-smi" "${CONDA_ENV_DIR}/bin/nvidia-smi"
+  chmod +x "${CONDA_ENV_DIR}/bin/nvidia-smi"
+  cat > "${CONDA_ENV_DIR}/etc/conda/activate.d/faultmesh-550.sh" <<EOF
+export PATH="${CONDA_ENV_DIR}/bin:\${PATH}"
+export LD_LIBRARY_PATH="${CONDA_ENV_DIR}/lib\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+EOF
+  cat > "${CONDA_ENV_DIR}/etc/conda/deactivate.d/faultmesh-550.sh" <<EOF
+export PATH="\${PATH//${CONDA_ENV_DIR}\/bin:/}"
+export LD_LIBRARY_PATH="\${LD_LIBRARY_PATH//${CONDA_ENV_DIR}\/lib:/}"
+export LD_LIBRARY_PATH="\${LD_LIBRARY_PATH//${CONDA_ENV_DIR}\/lib/}"
+EOF
+  log "conda userspace: ${CONDA_ENV_DIR}"
 }
 
 # A previous toolkit install into the repository can stop halfway and leave

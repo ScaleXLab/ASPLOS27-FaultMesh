@@ -47,7 +47,12 @@ sudo bash scripts/experiment/run_baseline_vs_faultmesh.sh
 
 `download_nvidia_550.sh` downloads and installs CUDA 12.4 Lib.
 
-`switch_to_faultmesh.sh` saves the machine's current kernel modules, installs the 550.54.14 kernel modules. 
+`switch_to_faultmesh.sh` saves the machine's current kernel modules, installs the 550.54.14 kernel modules, and puts `libcuda`, NVML, and `nvidia-smi` in the conda prefix `.conda/faultmesh-550`. It does not change system library links. Activate that prefix before checking the GPU:
+
+```bash
+conda activate .conda/faultmesh-550
+nvidia-smi
+``` 
 
 `run_baseline_vs_faultmesh.sh` compare UVM and FaultMesh under 10 GPGPU applications.
 

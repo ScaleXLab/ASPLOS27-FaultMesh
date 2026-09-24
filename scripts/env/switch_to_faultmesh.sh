@@ -59,60 +59,17 @@ snapshot_host() {
   fi
 }
 
-# Put nvcc, nvidia-smi, and libcuda where the current shell already looks.
-# /etc/profile.d is read only by a new login shell, so it cannot update this one.
+# Keep 550 libcuda and NVML in the conda prefix. Do not retarget system libraries.
 install_userspace() {
-  rm -f /etc/profile.d/faultmesh-550.sh
-  local nvcc_bin="" smi_bin="" dir link
-  if [[ -x "${CUDA_PREFIX}/bin/nvcc" ]]; then
-    nvcc_bin="${CUDA_PREFIX}/bin/nvcc"
-  elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
-    nvcc_bin="/usr/local/cuda/bin/nvcc"
+  rm -f /etc/profile.d/faultmesh-550.sh /etc/ld.so.conf.d/faultmesh-550.conf
+  local owner="${SUDO_USER:-}"
+  if [[ -n "${owner}" && "${owner}" != "root" ]]; then
+    sudo -u "${owner}" HOME="$(getent passwd "${owner}" | cut -d: -f6)" \
+      bash -c "source '${REPO_ROOT}/scripts/env/nvidia_550_common.sh' && setup_conda_userspace"
+    chown -R "${owner}:${owner}" "${CONDA_ENV_DIR}"
+  else
+    setup_conda_userspace
   fi
-  if [[ -x "${USERSPACE_DIR}/bin/nvidia-smi" ]]; then
-    smi_bin="${USERSPACE_DIR}/bin/nvidia-smi"
-  fi
-
-  : > "${SNAPSHOT_DIR}/bin-links.txt"
-  if [[ -n "${nvcc_bin}" ]]; then
-    if [[ -e /usr/local/bin/nvcc || -L /usr/local/bin/nvcc ]]; then
-      printf 'nvcc %s\n' "$(readlink -f /usr/local/bin/nvcc)" >> "${SNAPSHOT_DIR}/bin-links.txt"
-    else
-      printf 'nvcc MISSING\n' >> "${SNAPSHOT_DIR}/bin-links.txt"
-    fi
-    ln -sfn "${nvcc_bin}" /usr/local/bin/nvcc
-  fi
-  if [[ -n "${smi_bin}" ]]; then
-    if [[ -e /usr/local/bin/nvidia-smi || -L /usr/local/bin/nvidia-smi ]]; then
-      printf 'nvidia-smi %s\n' "$(readlink -f /usr/local/bin/nvidia-smi)" >> "${SNAPSHOT_DIR}/bin-links.txt"
-    else
-      printf 'nvidia-smi MISSING\n' >> "${SNAPSHOT_DIR}/bin-links.txt"
-    fi
-    ln -sfn "${smi_bin}" /usr/local/bin/nvidia-smi
-  fi
-
-  if [[ -e "${USERSPACE_DIR}/lib/libcuda.so.${NVIDIA_550_VERSION}" ]]; then
-    : > "${SNAPSHOT_DIR}/liblinks-created.txt"
-    while read -r dir; do
-      for link in "${LIB_LINKS[@]}"; do
-        if [[ ! -e "${dir}/${link}" && ! -L "${dir}/${link}" ]]; then
-          printf '%s\n' "${dir}/${link}" >> "${SNAPSHOT_DIR}/liblinks-created.txt"
-        fi
-      done
-      ln -sfn "${USERSPACE_DIR}/lib/libcuda.so.${NVIDIA_550_VERSION}" "${dir}/libcuda.so.1"
-      ln -sfn "libcuda.so.1" "${dir}/libcuda.so"
-      ln -sfn "${USERSPACE_DIR}/lib/libnvidia-ml.so.${NVIDIA_550_VERSION}" "${dir}/libnvidia-ml.so.1"
-      ln -sfn "libnvidia-ml.so.1" "${dir}/libnvidia-ml.so"
-      ln -sfn "${USERSPACE_DIR}/lib/libnvidia-ptxjitcompiler.so.${NVIDIA_550_VERSION}" "${dir}/libnvidia-ptxjitcompiler.so.1"
-      ln -sfn "libnvidia-ptxjitcompiler.so.1" "${dir}/libnvidia-ptxjitcompiler.so"
-    done < <(unique_lib_dirs)
-  fi
-
-  local ld_conf="/etc/ld.so.conf.d/faultmesh-550.conf"
-  : > "${ld_conf}"
-  [[ -d "${USERSPACE_DIR}/lib" ]] && printf '%s\n' "${USERSPACE_DIR}/lib" >> "${ld_conf}"
-  [[ -d "${CUDA_PREFIX}/lib64" ]] && printf '%s\n' "${CUDA_PREFIX}/lib64" >> "${ld_conf}"
-  ldconfig
 }
 
 restore_kos_after_install() {

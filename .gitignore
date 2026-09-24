@@ -1,6 +1,7 @@
 # Downloaded installers, unpacked driver libraries, CUDA toolkit, and logs
 third_party/
 cuda-toolkit/
+.conda/
 results/
 /*.run
 
