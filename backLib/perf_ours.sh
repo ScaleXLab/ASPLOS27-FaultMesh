@@ -23,15 +23,19 @@ set_param_if_exists() {
   fi
 }
 
-# Unload in dependency order.  libnvm is loaded by the core nvidia module on
-# this host; omitting it leaves nvidia with a non-zero refcount, after which
-# the later insmod fails with "File exists".  Do not force-unload: report a
-# real remaining client instead of risking a partially torn-down GPU stack.
+# Unload in dependency order. Some hosts autoload libnvm, which holds a
+# reference on nvidia. FaultMesh does not use it. rmmod works when the
+# module is loaded even if its file is no longer in the module directory.
+# modprobe -r looks that file up and exits with "Module libnvm not found".
 unload_nvidia_stack() {
   local mod
   for mod in nvidia_peermem nvidia_drm nvidia_modeset nvidia_uvm libnvm nvidia; do
     if lsmod | awk -v name="${mod}" '$1 == name { found = 1 } END { exit !found }'; then
-      sudo modprobe -r "${mod}"
+      if [[ "${mod}" == "libnvm" ]]; then
+        sudo rmmod libnvm || true
+      else
+        sudo modprobe -r "${mod}"
+      fi
     fi
   done
   if lsmod | awk '$1 == "nvidia" { found = 1 } END { exit !found }'; then
@@ -56,11 +60,15 @@ if [ "${BUILD_KERNEL}" = "1" ]; then
   make -C "${BACKLIB_DIR}" modules_install -j"$(nproc)"
 fi
 
-# Load the core through modprobe, not a bare insmod.  nvidia.ko depends on the
-# kernel's ecc module; insmod does not resolve that dependency and therefore
-# fails with "Unknown symbol in module" after a clean unload.
-sudo modprobe nvidia
-sudo modprobe nvidia-uvm \
+# ecc is a kernel dependency of nvidia.ko. Load it by name, then insert the
+# modules built in this tree. modprobe nvidia would prefer a DKMS module
+# under updates/ and silently load the wrong driver.
+KO_DIR="${BACKLIB_DIR}/kernel-open"
+sudo modprobe ecc || true
+sudo insmod "${KO_DIR}/nvidia.ko"
+sudo insmod "${KO_DIR}/nvidia-modeset.ko"
+sudo insmod "${KO_DIR}/nvidia-drm.ko"
+sudo insmod "${KO_DIR}/nvidia-uvm.ko" \
   uvm_parallel_fault_processing=2 \
   uvm_kthread_workers="${PARALLEL_WORKERS}" \
   uvm_batched_ipi_unmap=1 \
@@ -78,8 +86,6 @@ sudo modprobe nvidia-uvm \
   uvm_perf_fault_fetch_predictor_boost_enable=0 \
   uvm_perf_fault_pred_skip_enable=1 \
   uvm_perf_fault_replay_force_update_put=0
-sudo modprobe nvidia-modeset
-sudo modprobe nvidia-drm
 # nvidia_peermem is the InfiniBand GPUDirect client. It takes no module
 # parameters. On a kernel without that peer-memory interface its init returns
 # -EINVAL ("Invalid argument"). The UVM comparison does not use it, so we do

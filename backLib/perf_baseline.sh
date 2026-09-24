@@ -21,14 +21,18 @@ set_param_if_exists() {
   fi
 }
 
-# Keep baseline reload behavior identical to perf_ours.sh.  libnvm holds a
-# reference on the nvidia core module on this host, so it must be removed
-# before the final core-module unload.
+# Same unload order as perf_ours.sh. libnvm is not part of FaultMesh. If a
+# host has it loaded it pins nvidia.ko, so remove it with rmmod. modprobe -r
+# fails with "Module libnvm not found" when that file is not installed.
 unload_nvidia_stack() {
   local mod
   for mod in nvidia_peermem nvidia_drm nvidia_modeset nvidia_uvm libnvm nvidia; do
     if lsmod | awk -v name="${mod}" '$1 == name { found = 1 } END { exit !found }'; then
-      sudo modprobe -r "${mod}"
+      if [[ "${mod}" == "libnvm" ]]; then
+        sudo rmmod libnvm || true
+      else
+        sudo modprobe -r "${mod}"
+      fi
     fi
   done
   if lsmod | awk '$1 == "nvidia" { found = 1 } END { exit !found }'; then
@@ -53,10 +57,15 @@ if [ "${BUILD_KERNEL}" = "1" ]; then
   make -C "${BACKLIB_DIR}" modules_install -j"$(nproc)"
 fi
 
-# Resolve the core driver's ecc dependency via modprobe.  A bare insmod
-# cannot load it and fails after a clean unload with "Unknown symbol".
-sudo modprobe nvidia
-sudo modprobe nvidia-uvm \
+# ecc is a kernel dependency of nvidia.ko. Load it by name, then insert the
+# modules built in this tree. modprobe nvidia would prefer a DKMS module
+# under updates/ and silently load the wrong driver.
+KO_DIR="${BACKLIB_DIR}/kernel-open"
+sudo modprobe ecc || true
+sudo insmod "${KO_DIR}/nvidia.ko"
+sudo insmod "${KO_DIR}/nvidia-modeset.ko"
+sudo insmod "${KO_DIR}/nvidia-drm.ko"
+sudo insmod "${KO_DIR}/nvidia-uvm.ko" \
   uvm_parallel_fault_processing=0 \
   uvm_kthread_workers="${PARALLEL_WORKERS}" \
   uvm_batched_ipi_unmap=0 \
@@ -74,8 +83,6 @@ sudo modprobe nvidia-uvm \
   uvm_perf_fault_fetch_predictor_boost_enable=0 \
   uvm_perf_fault_pred_skip_enable=0 \
   uvm_perf_fault_replay_force_update_put=0
-sudo modprobe nvidia-modeset
-sudo modprobe nvidia-drm
 # nvidia_peermem is the InfiniBand GPUDirect client. It takes no module
 # parameters. On a kernel without that peer-memory interface its init returns
 # -EINVAL ("Invalid argument"). The UVM comparison does not use it, so we do
