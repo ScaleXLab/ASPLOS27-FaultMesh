@@ -18,7 +18,12 @@ module_root="/lib/modules/${kernel}"
 log "unload NVIDIA modules"
 for mod in nvidia_peermem nvidia_drm nvidia_modeset nvidia_uvm libnvm nvidia; do
   if lsmod | awk -v name="${mod}" '$1 == name { found = 1 } END { exit !found }'; then
-    rmmod "${mod}" || modprobe -r "${mod}"
+    if [[ "${mod}" == "libnvm" ]]; then
+      # Not part of FaultMesh. rmmod does not need the module file.
+      rmmod libnvm || true
+    else
+      rmmod "${mod}" || modprobe -r "${mod}"
+    fi
   fi
 done
 if lsmod | awk '$1 == "nvidia" { found = 1 } END { exit !found }'; then

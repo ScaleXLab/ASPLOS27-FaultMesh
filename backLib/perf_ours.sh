@@ -23,15 +23,19 @@ set_param_if_exists() {
   fi
 }
 
-# Unload in dependency order.  libnvm is loaded by the core nvidia module on
-# this host; omitting it leaves nvidia with a non-zero refcount, after which
-# the later insmod fails with "File exists".  Do not force-unload: report a
-# real remaining client instead of risking a partially torn-down GPU stack.
+# Unload in dependency order. Some hosts autoload libnvm, which holds a
+# reference on nvidia. FaultMesh does not use it. rmmod works when the
+# module is loaded even if its file is no longer in the module directory.
+# modprobe -r looks that file up and exits with "Module libnvm not found".
 unload_nvidia_stack() {
   local mod
   for mod in nvidia_peermem nvidia_drm nvidia_modeset nvidia_uvm libnvm nvidia; do
     if lsmod | awk -v name="${mod}" '$1 == name { found = 1 } END { exit !found }'; then
-      sudo modprobe -r "${mod}"
+      if [[ "${mod}" == "libnvm" ]]; then
+        sudo rmmod libnvm || true
+      else
+        sudo modprobe -r "${mod}"
+      fi
     fi
   done
   if lsmod | awk '$1 == "nvidia" { found = 1 } END { exit !found }'; then

@@ -21,14 +21,18 @@ set_param_if_exists() {
   fi
 }
 
-# Keep baseline reload behavior identical to perf_ours.sh.  libnvm holds a
-# reference on the nvidia core module on this host, so it must be removed
-# before the final core-module unload.
+# Same unload order as perf_ours.sh. libnvm is not part of FaultMesh. If a
+# host has it loaded it pins nvidia.ko, so remove it with rmmod. modprobe -r
+# fails with "Module libnvm not found" when that file is not installed.
 unload_nvidia_stack() {
   local mod
   for mod in nvidia_peermem nvidia_drm nvidia_modeset nvidia_uvm libnvm nvidia; do
     if lsmod | awk -v name="${mod}" '$1 == name { found = 1 } END { exit !found }'; then
-      sudo modprobe -r "${mod}"
+      if [[ "${mod}" == "libnvm" ]]; then
+        sudo rmmod libnvm || true
+      else
+        sudo modprobe -r "${mod}"
+      fi
     fi
   done
   if lsmod | awk '$1 == "nvidia" { found = 1 } END { exit !found }'; then
