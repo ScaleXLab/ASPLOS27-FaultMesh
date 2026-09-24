@@ -45,6 +45,7 @@ unload_nvidia_stack() {
 # make -C does not depend on the caller's working directory.
 BACKLIB_DIR="$(dirname "$(readlink -f "$0")")"
 if [ "${BUILD_KERNEL}" = "1" ]; then
+  bash "${BACKLIB_DIR}/../scripts/env/check_retpoline_headers.sh"
   make -C "${BACKLIB_DIR}" modules -j"$(nproc)"
 fi
 
