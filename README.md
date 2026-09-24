@@ -26,13 +26,18 @@ Note: Run the commands below with `sudo`. Each one stops the sequence if it fail
 | `backLib/` | FaultMesh-BackLib Design, included in Open GPU kernel modules |
 | `application/` | 2DCONV, ATAX, BICG, GEMM, GESUMMV, MVT, hellinger, nw, XSBench, bfs |
 | `scripts/env/` | Download the 550 userspace and CUDA 12.4, switch the kernel modules, and restore them |
-| `scripts/experiment/` | Application comparison |
+| `scripts/experiment/` | UVM and FaultMesh comparison under different applications |
 
 ## 🚀 One-Click Reproduction
 
-Reproduce our main results with just a few commands.
+Clone the repository and enter it. Run all remaining commands from this directory:
 
-From the repository root:
+```bash
+git clone https://github.com/ScaleXLab/ASPLOS27-FaultMesh.git
+cd ASPLOS27-FaultMesh
+```
+
+Build the environments and reproduce our results:
 
 ```bash
 sudo bash scripts/env/download_nvidia_550.sh &&
