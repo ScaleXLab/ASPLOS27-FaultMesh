@@ -127,23 +127,38 @@ parse_gpu() {
 
 run_app() {
   local design="$1" app="$2" variant="$3"
-  local cmd logfile rc=0 t0 wall gpu
+  local cmd logfile rc=0 t0 wall gpu i
+  local rc_all=0 sum_wall=0 n_gpu=0 gpu_list=""
   cmd="$(bench_cmd "${app}")"
-  logfile="${OUT}/logs/${app}_${design}.log"
   log "run ${app} ${design}"
-  sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches' || true
-  t0=${SECONDS}
-  if [[ "${app}" == "bfs" ]]; then
-    (cd "${OUT}/bin" && timeout --kill-after=30 1800 env BENCH_VARIANT="${variant}" SKIP_NAIVE_GEMM=1 ${cmd}) \
-      > "${logfile}" 2>&1 || rc=$?
-  else
-    timeout --kill-after=30 1800 env BENCH_VARIANT="${variant}" SKIP_NAIVE_GEMM=1 \
-      ${cmd} > "${logfile}" 2>&1 || rc=$?
+  for i in 1 2 3; do
+    logfile="${OUT}/logs/${app}_${design}_${i}.log"
+    rc=0
+    sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches' || true
+    t0=${SECONDS}
+    if [[ "${app}" == "bfs" ]]; then
+      (cd "${OUT}/bin" && timeout --kill-after=30 1800 env BENCH_VARIANT="${variant}" SKIP_NAIVE_GEMM=1 ${cmd}) \
+        > "${logfile}" 2>&1 || rc=$?
+    else
+      timeout --kill-after=30 1800 env BENCH_VARIANT="${variant}" SKIP_NAIVE_GEMM=1 \
+        ${cmd} > "${logfile}" 2>&1 || rc=$?
+    fi
+    wall=$((SECONDS - t0))
+    gpu="$(parse_gpu "${logfile}")"
+    sum_wall=$((sum_wall + wall))
+    [[ "${rc}" -eq 0 ]] || rc_all="${rc}"
+    if [[ -n "${gpu}" ]]; then
+      gpu_list="${gpu_list} ${gpu}"
+      n_gpu=$((n_gpu + 1))
+    fi
+  done
+  wall=$(((sum_wall + 1) / 3))
+  gpu=""
+  if [[ "${n_gpu}" -gt 0 ]]; then
+    gpu="$(python3 -c "import sys; v=list(map(float, sys.argv[1:])); print(f'{sum(v)/len(v):.6f}')" ${gpu_list})"
   fi
-  wall=$((SECONDS - t0))
-  gpu="$(parse_gpu "${logfile}")"
-  echo "${app},${design},${wall},${gpu},${rc}" >> "${OUT}/results.csv"
-  log "  rc=${rc} wall=${wall}s gpu=${gpu:-NA}s"
+  echo "${app},${design},${wall},${gpu},${rc_all}" >> "${OUT}/results.csv"
+  log "  rc=${rc_all} wall=${wall}s gpu=${gpu:-NA}s"
 }
 
 run_design() {
@@ -173,7 +188,7 @@ for row in rows:
 lines = [
     "# UVM vs FaultMesh",
     "",
-    "GPU seconds. Speedup is UVM baseline / FaultMesh.",
+    "GPU seconds, mean of 3 runs. Speedup is UVM baseline / FaultMesh.",
     "",
     "| App | UVM baseline | FaultMesh | Speedup |",
     "|---|---:|---:|---:|",
