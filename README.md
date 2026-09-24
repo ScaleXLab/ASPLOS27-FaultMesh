@@ -14,7 +14,7 @@ Note: Run the commands below with `sudo`. Each one stops the sequence if it fail
 
 - GCC >= 5.4.0 with C++11 and POSIX threads support.
 - CUDA 12.4 with Nvidia open-source driver 550.54.14 (see below).
-- GNU Make, Python 3, and wget or curl.
+- GNU Make, Python 3, Conda, and wget or curl.
 - Linux kernel headers for the running kernel. Evaluated on Ubuntu 22.04 and Linux 6.8.0-94-generic.
 
 
@@ -30,14 +30,14 @@ Note: Run the commands below with `sudo`. Each one stops the sequence if it fail
 
 ## 🚀 One-Click Reproduction
 
-Clone the repository and enter it. Run all remaining commands from this directory:
+Clone this branch and enter it. Run all remaining commands from this directory:
 
 ```bash
-git clone https://github.com/ScaleXLab/ASPLOS27-FaultMesh.git
+git clone -b conda-userspace https://github.com/ScaleXLab/ASPLOS27-FaultMesh.git
 cd ASPLOS27-FaultMesh
 ```
 
-Build the environments and reproduce our results:
+Build the driver, the conda userspace, and reproduce the results:
 
 ```bash
 sudo bash scripts/env/download_nvidia_550.sh &&
@@ -45,16 +45,16 @@ sudo bash scripts/env/switch_to_faultmesh.sh &&
 sudo bash scripts/experiment/run_baseline_vs_faultmesh.sh
 ```
 
-`download_nvidia_550.sh` downloads and installs CUDA 12.4 Lib.
+`download_nvidia_550.sh` downloads the 550.54.14 driver and CUDA 12.4 installer. `nvcc` uses the system CUDA 12.4 if it is already installed.
 
-`switch_to_faultmesh.sh` saves the machine's current kernel modules, installs the 550.54.14 kernel modules, and puts `libcuda`, NVML, and `nvidia-smi` in the conda prefix `.conda/faultmesh-550`. It does not change system library links. Activate that prefix before checking the GPU:
+`switch_to_faultmesh.sh` saves the current kernel modules, loads the 550.54.14 kernel modules, and creates `.conda/faultmesh-550` with `libcuda`, NVML, and `nvidia-smi`. It does not change system library links. The comparison script puts that prefix on `LD_LIBRARY_PATH` itself. To check the GPU in a shell:
 
 ```bash
 conda activate .conda/faultmesh-550
 nvidia-smi
-``` 
+```
 
-`run_baseline_vs_faultmesh.sh` compare UVM and FaultMesh under 10 GPGPU applications.
+`run_baseline_vs_faultmesh.sh` compares UVM and FaultMesh under 10 GPGPU applications. Each application runs three times, and the reported GPU time is the mean.
 
 Switching the driver has to unload `nvidia_uvm`. If another program is using the GPU, that unload fails because the module is in use. These scripts stop the display manager and kill processes holding `/dev/nvidia*`. Save any other GPU work before you start.
 
