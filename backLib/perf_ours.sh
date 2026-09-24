@@ -60,11 +60,17 @@ if [ "${BUILD_KERNEL}" = "1" ]; then
   make -C "${BACKLIB_DIR}" modules_install -j"$(nproc)"
 fi
 
-# ecc is a kernel dependency of nvidia.ko. Load it by name, then insert the
-# modules built in this tree. modprobe nvidia would prefer a DKMS module
-# under updates/ and silently load the wrong driver.
+# ecc is a hard dependency of nvidia.ko. video is a hard dependency of
+# nvidia-modeset.ko. ecdh_generic and ecdsa_generic are softdeps that
+# modprobe nvidia would load and insmod does not. Load those by name, then
+# insert the modules built in this tree so a DKMS module under updates/ is
+# not chosen.
 KO_DIR="${BACKLIB_DIR}/kernel-open"
 sudo modprobe ecc || true
+sudo modprobe video || true
+sudo modprobe wmi || true
+sudo modprobe ecdh_generic || true
+sudo modprobe ecdsa_generic || true
 sudo insmod "${KO_DIR}/nvidia.ko"
 sudo insmod "${KO_DIR}/nvidia-modeset.ko"
 sudo insmod "${KO_DIR}/nvidia-drm.ko"
