@@ -49,6 +49,7 @@ if [ "${BUILD_KERNEL}" = "1" ]; then
   make -C "${BACKLIB_DIR}" modules -j"$(nproc)"
 fi
 
+bash "${BACKLIB_DIR}/../scripts/env/clear_gpu_processes.sh"
 unload_nvidia_stack
 
 if [ "${BUILD_KERNEL}" = "1" ]; then
@@ -79,7 +80,10 @@ sudo modprobe nvidia-uvm \
   uvm_perf_fault_replay_force_update_put=0
 sudo modprobe nvidia-modeset
 sudo modprobe nvidia-drm
-sudo modprobe nvidia-peermem
+# nvidia_peermem is the InfiniBand GPUDirect client. It takes no module
+# parameters. On a kernel without that peer-memory interface its init returns
+# -EINVAL ("Invalid argument"). The UVM comparison does not use it, so we do
+# not load it. Unload still removes it when the host had it loaded.
 sudo dmesg -C
 set_param_if_exists uvm_fpd_profile_enable 0
 set_param_if_exists uvm_merge_segment_size 0

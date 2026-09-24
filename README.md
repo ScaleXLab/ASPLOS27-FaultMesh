@@ -51,6 +51,12 @@ sudo bash scripts/experiment/run_baseline_vs_faultmesh.sh
 
 `run_baseline_vs_faultmesh.sh` compare UVM and FaultMesh under 10 GPGPU applications.
 
+Switching the driver has to unload `nvidia_uvm`. If another program is using the GPU, that unload fails because the module is in use. These scripts stop the display manager and kill processes holding `/dev/nvidia*`. Save any other GPU work before you start.
+
+Two messages during the kernel install are not a failed build:
+
+- `modules_install: missing 'System.map' file. Skipping depmod.` The header package does not ship `System.map`, so the install copies the modules and skips `depmod`. If `modprobe` then cannot find them, run `sudo depmod -a $(uname -r)`.
+
 ## Restore the original driver
 
 After the experiments, you can put back your kernel using:

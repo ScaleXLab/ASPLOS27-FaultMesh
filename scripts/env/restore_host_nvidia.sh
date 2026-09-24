@@ -49,7 +49,8 @@ modprobe nvidia
 modprobe nvidia-uvm || true
 modprobe nvidia-modeset || true
 modprobe nvidia-drm || true
-modprobe nvidia-peermem || true
+# nvidia_peermem takes no parameters. Kernels without the InfiniBand
+# peer-memory interface return -EINVAL from its init. Do not load it.
 
 if [[ -f "${SNAPSHOT_DIR}/liblinks.txt" ]]; then
   while read -r path target; do
