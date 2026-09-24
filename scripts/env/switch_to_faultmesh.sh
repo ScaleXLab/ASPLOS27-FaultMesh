@@ -86,10 +86,12 @@ restore_kos_after_install() {
 
 snapshot_host
 install_gsp_firmware
+# Prepare userspace before unloading the current driver. A missing conda
+# install must not leave the machine on a half-switched kernel.
+install_userspace
 log "build and load FaultMesh kernel modules"
 BUILD_KERNEL="${BUILD_KERNEL:-1}" bash "${REPO_ROOT}/scripts/env/load_faultmesh.sh"
 restore_kos_after_install
-install_userspace
 touch "${SNAPSHOT_DIR}/ACTIVE"
 use_repo_cuda
 log "FaultMesh 550.54.14 is loaded. nvidia-smi:"

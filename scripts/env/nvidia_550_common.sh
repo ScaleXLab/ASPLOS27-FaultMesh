@@ -154,13 +154,14 @@ setup_conda_userspace() {
     "$(command -v conda 2>/dev/null || true)" \
     "${HOME}/anaconda3/bin/conda" \
     "${HOME}/miniconda3/bin/conda" \
-    /home/leo/anaconda3/bin/conda \
     /opt/conda/bin/conda; do
     [[ -n "${conda_bin}" && -x "${conda_bin}" ]] && break
     conda_bin=""
   done
-  [[ -n "${conda_bin}" ]] || die "conda was not found"
-  if [[ ! -d "${CONDA_ENV_DIR}" ]]; then
+  [[ -n "${conda_bin}" ]] || {
+    log "conda was not found. 550 libraries will be used from ${CONDA_ENV_DIR} without conda."
+  }
+  if [[ -n "${conda_bin}" && ! -d "${CONDA_ENV_DIR}" ]]; then
     "${conda_bin}" create -y --prefix "${CONDA_ENV_DIR}"
   fi
   mkdir -p "${CONDA_ENV_DIR}/lib" "${CONDA_ENV_DIR}/bin" \
