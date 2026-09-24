@@ -146,22 +146,45 @@ require_nvcc() {
 
 # Userspace 550 libraries live in a conda prefix inside this repository.
 # The kernel module switch still changes the machine; these libraries do not.
+find_conda() {
+  local candidate home_dir
+  home_dir="${HOME}"
+  if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+    home_dir="$(getent passwd "${SUDO_USER}" | cut -d: -f6)"
+  fi
+  for candidate in \
+    "$(command -v conda 2>/dev/null || true)" \
+    "${home_dir}/miniconda3/bin/conda" \
+    "${home_dir}/anaconda3/bin/conda" \
+    /opt/conda/bin/conda; do
+    [[ -n "${candidate}" && -x "${candidate}" ]] && { printf '%s\n' "${candidate}"; return 0; }
+  done
+  return 1
+}
+
+install_miniconda() {
+  local dest="${HOME}/miniconda3"
+  local installer="${TMPDIR:-/tmp}/Miniconda3-latest-Linux-x86_64.sh"
+  log "conda was not found. Installing Miniconda to ${dest}"
+  curl -fL --retry 3 -o "${installer}" \
+    https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  bash "${installer}" -b -p "${dest}"
+  "${dest}/bin/conda" tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+  "${dest}/bin/conda" tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+  "${dest}/bin/conda" init bash >/dev/null
+  printf '%s\n' "${dest}/bin/conda"
+}
+
 setup_conda_userspace() {
   local libcuda="${USERSPACE_DIR}/lib/libcuda.so.${NVIDIA_550_VERSION}"
   [[ -e "${libcuda}" ]] || die "missing ${libcuda}. Run: bash scripts/env/download_nvidia_550.sh"
   local conda_bin=""
-  for conda_bin in \
-    "$(command -v conda 2>/dev/null || true)" \
-    "${HOME}/anaconda3/bin/conda" \
-    "${HOME}/miniconda3/bin/conda" \
-    /opt/conda/bin/conda; do
-    [[ -n "${conda_bin}" && -x "${conda_bin}" ]] && break
-    conda_bin=""
-  done
-  [[ -n "${conda_bin}" ]] || {
-    log "conda was not found. 550 libraries will be used from ${CONDA_ENV_DIR} without conda."
-  }
-  if [[ -n "${conda_bin}" && ! -d "${CONDA_ENV_DIR}" ]]; then
+  conda_bin="$(find_conda || true)"
+  if [[ -z "${conda_bin}" ]]; then
+    conda_bin="$(install_miniconda)"
+  fi
+  log "using conda: ${conda_bin}"
+  if [[ ! -f "${CONDA_ENV_DIR}/conda-meta/history" ]]; then
     "${conda_bin}" create -y --prefix "${CONDA_ENV_DIR}"
   fi
   mkdir -p "${CONDA_ENV_DIR}/lib" "${CONDA_ENV_DIR}/bin" \

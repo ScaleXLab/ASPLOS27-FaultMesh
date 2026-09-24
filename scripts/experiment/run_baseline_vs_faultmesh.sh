@@ -8,6 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${ROOT}/scripts/env/nvidia_550_common.sh"
 require_nvcc
+log "550 userspace: ${CONDA_ENV_DIR}"
 BENCH="${ROOT}/application"
 ARCH="${ARCH:-sm_80}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
