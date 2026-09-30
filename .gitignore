@@ -1,0 +1,40 @@
+# Downloaded installers, unpacked driver libraries, CUDA toolkit, and logs
+third_party/
+cuda-toolkit/
+/results/
+/*.run
+
+# Build artifacts
+**/build/
+*.o
+*.so
+*.so.*
+*.ko
+*.a
+*.mod
+*.mod.c
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+
+# Application binaries and generated graphs
+application/**/run
+application/**/run_16gb
+application/hellinger/hellinger
+application/**/needle
+application/bfs/bfs
+application/XSBench/XSBench
+application/**/graphgen
+application/**/graph*.txt
+application/**/result.txt
+
+# application/llama/ is llama.cpp; the rules above are for the GPGPU binaries
+# (application/**/run would drop tools/run/), llama.cpp's own .gitignore applies.
+!application/llama/**
+# llama.cpp build tree (the model is downloaded into third_party/models/)
+application/llama/build/
+
+# Editor
+*~
+*.swp
